@@ -1,31 +1,90 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import parse_qs
+
+users: dict = {}
 
 
 # Слушатель http запросов
-class HTTP_handler(BaseHTTPRequestHandler):
+class HTTPHandler(BaseHTTPRequestHandler):
+
+    def set_headers(self, status_code: int, content_type="text/html"):
+        self.send_response(status_code)
+        self.send_header('Content-type', content_type)
+        self.end_headers()
 
     def do_POST(self):
-        self.send_response(200)
+        content_length = int(self.headers['Content-Length'])
+        data = self.rfile.read(content_length).decode('UTF-8')
+
+        if self.path == "/signin.html":
+            params: dict = parse_qs(data)
+
+            login = params.get('name')
+            password = params.get('pass')
+
+            # Получены ли все параметры?
+            if login is None or password is None:
+                self.set_headers(403)
+                self.wfile.write(b"Username or password incorrect!")
+                return
+
+            login = login.pop()
+            password = password.pop()
+
+            # Найдена ли запись в users?
+            found_password = users.get(login)
+            if found_password is None:
+                self.set_headers(403)
+                self.wfile.write(b"Username or password incorrect!")
+            # Правильный ли пароль?
+            elif found_password == password:
+                self.set_headers(200)
+                self.wfile.write(f"<p>Username: <b>{login}</b></p><br>- Mornin'<br>- Nice day for fishing, ain't it?<br>- Huh-ha!".encode("UTF-8"))
+            else:
+                self.set_headers(403)
+                self.wfile.write(b"Username or password incorrect!")
+        else:
+            self.set_headers(404)
 
     def do_GET(self):
-
-        print(self.headers)
-        print(self.path)
-
-        if self.path == "/":
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-
-            with open("index.html", "rb") as f:
+        # Страница входа
+        if self.path == "/login.html":
+            try:
+                f = open("login.html", "rb")
+                self.set_headers(200)
                 self.wfile.write(f.read())
+                f.close()
+            except Exception as e:
+                self.set_headers(500)
+                print(e)
+
+        # Главная страница
+        elif self.path == "/index.html":
+            try:
+                f = open("index.html", "rb")
+                self.set_headers(200)
+                self.wfile.write(f.read())
+                f.close()
+            except Exception as e:
+                self.set_headers(500)
+                print(e)
+        else:
+            self.set_headers(404)
 
 
 def main():
+    global users
+
+    # Чтение БД с пользователями
+    with open("users.txt", "r") as file:
+        for line in file:
+            args = line.strip().split(";")
+            login = args[0]
+            password = args[1]
+            users[login] = password
 
     # Создаём объект http-сервера
-    http_server = HTTPServer(("192.168.1.133", 44444), HTTP_handler)
-
+    http_server = HTTPServer(("192.168.1.133", 44444), HTTPHandler)
     http_server.serve_forever()
 
 
