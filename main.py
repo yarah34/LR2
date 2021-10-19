@@ -47,29 +47,16 @@ class HTTPHandler(BaseHTTPRequestHandler):
             self.set_headers(404)
 
     def do_GET(self):
-        # Страница входа
-        if self.path == "/login.html":
-            try:
-                f = open("login.html", "rb")
-                self.set_headers(200)
-                self.wfile.write(f.read())
-                f.close()
-            except Exception as e:
-                self.set_headers(500)
-                print(e)
+        path = "." + self.path
 
-        # Главная страница
-        elif self.path == "/index.html":
-            try:
-                f = open("index.html", "rb")
-                self.set_headers(200)
-                self.wfile.write(f.read())
-                f.close()
-            except Exception as e:
-                self.set_headers(500)
-                print(e)
-        else:
+        try:
+            f = open(path, "rb")
+            self.set_headers(200)
+            self.wfile.write(f.read())
+            f.close()
+        except Exception as e:
             self.set_headers(404)
+            print(e)
 
 
 def main():
@@ -78,9 +65,7 @@ def main():
     # Чтение БД с пользователями
     with open("users.txt", "r") as file:
         for line in file:
-            args = line.strip().split(";")
-            login = args[0]
-            password = args[1]
+            login, password = line.strip().split(";")
             users[login] = password
 
     # Создаём объект http-сервера
