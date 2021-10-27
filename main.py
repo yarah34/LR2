@@ -1,13 +1,14 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs
 
-users: dict = {}
+
+import controller
 
 
 # Слушатель http запросов
 class HTTPHandler(BaseHTTPRequestHandler):
 
-    def set_headers(self, status_code: int, content_type="text/html"):
+    def set_headers(self, status_code: int, content_type="text/html;charset=UTF-8"):
         self.send_response(status_code)
         self.send_header('Content-type', content_type)
         self.end_headers()
@@ -18,55 +19,38 @@ class HTTPHandler(BaseHTTPRequestHandler):
 
         if self.path == "/signin.html":
             params: dict = parse_qs(data)
-
             login = params.get('name')
             password = params.get('pass')
 
-            # Получены ли все параметры?
-            if login is None or password is None:
-                self.set_headers(403)
-                self.wfile.write(b"Username or password incorrect!")
-                return
+            status_code, answer = controller.try_login(login, password)
 
-            login = login.pop()
-            password = password.pop()
+            self.set_headers(status_code)
+            self.wfile.write(answer)
+        elif self.path == "/view_db":
+            params: dict = parse_qs(data)
+            value = params.get('view_db')
 
-            # Найдена ли запись в users?
-            found_password = users.get(login)
-            if found_password is None:
-                self.set_headers(403)
-                self.wfile.write(b"Username or password incorrect!")
-            # Правильный ли пароль?
-            elif found_password == password:
-                self.set_headers(200)
-                self.wfile.write(f"<p>Username: <b>{login}</b></p><br>- Mornin'<br>- Nice day for fishing, ain't it?<br>- Huh-ha!".encode("UTF-8"))
-            else:
-                self.set_headers(403)
-                self.wfile.write(b"Username or password incorrect!")
+            status_code, answer = controller.view_db(value)
+
+            self.set_headers(status_code)
+            self.wfile.write(answer)
         else:
             self.set_headers(404)
 
     def do_GET(self):
-        path = "." + self.path
+        status_code, answer = controller.get_page(self.path)
 
-        try:
-            f = open(path, "rb")
-            self.set_headers(200)
-            self.wfile.write(f.read())
-            f.close()
-        except Exception as e:
-            self.set_headers(404)
-            print(e)
+        self.set_headers(status_code)
+        if answer is not None:
+            self.wfile.write(answer)
 
 
 def main():
-    global users
-
     # Чтение БД с пользователями
     with open("users.txt", "r") as file:
         for line in file:
             login, password = line.strip().split(";")
-            users[login] = password
+            controller.users[login] = password
 
     # Создаём объект http-сервера
     http_server = HTTPServer(("192.168.1.133", 44444), HTTPHandler)
