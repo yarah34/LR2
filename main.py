@@ -46,12 +46,6 @@ class HTTPHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    # Чтение БД с пользователями
-    with open("users.txt", "r") as file:
-        for line in file:
-            login, password = line.strip().split(";")
-            controller.users[login] = password
-
     # Создаём объект http-сервера
     http_server = HTTPServer(("192.168.1.133", 44444), HTTPHandler)
     http_server.serve_forever()

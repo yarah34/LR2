@@ -2,8 +2,26 @@ from datetime import datetime
 from io import StringIO
 from pathlib import Path
 import psycopg2
+from hashlib import sha256
 
-users: dict = {}
+psql = {
+    "dbname": 'db_name1',
+    "user": 'postgres',
+    "password": 'P@ssw0rd',
+    # "user": 'db_user1',
+    # "password": 'P@ssw0rd',
+    "host": 'localhost',
+    "port": 5432
+}
+
+def get_connection():
+    return psycopg2.connect(
+        dbname=psql['dbname'],
+        user=psql['user'],
+        password=psql['password'],
+        host=psql['host'],
+        port=psql['port']
+    )
 
 
 def try_login(login: list, password: list) -> (int, bytes):
@@ -14,16 +32,24 @@ def try_login(login: list, password: list) -> (int, bytes):
     login: str = login.pop()
     password: str = password.pop()
 
-    # Найдена ли запись в users?
-    found_password = users.get(login)
+    # Запрос на получение пары name, pass
+    conn = get_connection()
+    cursor = conn.cursor()
 
-    if found_password is None:
-        return 403, b"Username or password incorrect!"
+    password_hash = sha256(password.encode("UTF-8")).hexdigest()
 
-    # Правильный ли пароль?
-    elif found_password == password:
+    cursor.execute(f"SELECT name FROM users WHERE name = '{login}' AND pass = '{password_hash}' LIMIT 1")
+    records: list = cursor.fetchall()
+    # [(admin, pass), (user, pass), ...]
+
+    cursor.close()
+    conn.close()
+
+    # Если запись найдена, отправляем положительный результат
+    if len(records) != 0:
+        username_from_db: str = records[0][0]
         with open("pages/profile.html", 'r') as f:
-            text = f.read().replace("{login}", login)
+            text = f.read().replace("{login}", username_from_db)
             return 200, text.encode("UTF-8")
     else:
         return 403, b"Username or password incorrect!"
@@ -52,6 +78,12 @@ def get_page(path: str) -> (int, bytes):
 
 
 def view_db(value: list) -> (int, bytes):
+    '''
+    Формирует html страницу на основе переданном параметре.
+    :param value: передаётся из запроса на стр. profile.html и принимает значения authors или books
+    :return: (код, html для показа пользователю)
+    '''
+
     # Получены ли все параметры?
     if value is None:
         return 404, None
@@ -67,7 +99,13 @@ def view_db(value: list) -> (int, bytes):
 
 
 def get_authors() -> (int, bytes):
-    conn = psycopg2.connect(dbname='db_name1', user='postgres', password='P@ssw0rd', host='localhost', port=5432)
+    conn = psycopg2.connect(
+        dbname=psql['dbname'],
+        user=psql['user'],
+        password=psql['password'],
+        host=psql['host'],
+        port=psql['port']
+    )
     cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM authors")
@@ -83,8 +121,15 @@ def get_authors() -> (int, bytes):
 
     return 200, sb.getvalue().encode("UTF-8")
 
+
 def get_books() -> (int, bytes):
-    conn = psycopg2.connect(dbname='db_name1', user='postgres', password='P@ssw0rd', host='localhost', port=5432)
+    conn = psycopg2.connect(
+        dbname=psql['dbname'],
+        user=psql['user'],
+        password=psql['password'],
+        host=psql['host'],
+        port=psql['port']
+    )
     cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM books ORDER BY id")
