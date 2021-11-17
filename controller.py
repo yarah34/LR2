@@ -38,7 +38,7 @@ def try_login(login: list, password: list) -> (int, bytes):
 
     password_hash = sha256(password.encode("UTF-8")).hexdigest()
 
-    cursor.execute(f"SELECT name FROM users WHERE name = '{login}' AND pass = '{password_hash}' LIMIT 1")
+    cursor.execute("SELECT name FROM users WHERE name = %s AND pass = %s LIMIT 1", (login, password_hash) )
     records: list = cursor.fetchall()
     # [(admin, pass), (user, pass), ...]
 
