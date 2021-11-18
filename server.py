@@ -67,11 +67,14 @@ class HTTPHandler(BaseHTTPRequestHandler):
                               left join book b on b.id = ba.bid"
 
             if bookname:
-                sql += f"\rwhere b.name like '{bookname.pop()}'"
+                sql += "\nwhere b.name like %s"
 
             try:
                 cursor = client.cursor()
-                cursor.execute(sql)
+                if bookname:
+                    cursor.execute(sql, (bookname.pop()))
+                else:
+                    cursor.execute(sql)
 
                 data: list = cursor.fetchall()
                 cursor.close()
@@ -86,8 +89,8 @@ class HTTPHandler(BaseHTTPRequestHandler):
                 with open("views/booklist.html", "r", encoding="UTF-8") as f:
                     self.send(200, f.read().replace("{data}", content.getvalue()))
             except Exception as e:
-                print(e)
-                self.send(500, f"Error {e}. <br/> SQL: {sql}")
+                print(f"Error {e}. <br/> SQL: {sql}")
+                self.redirect("/books")
         elif url.path == "/":
             self.redirect("/login.html")
         else:
